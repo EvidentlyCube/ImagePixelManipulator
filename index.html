@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Image Pixel Editor</title>
+    <style>
+    body {
+      display: flex;
+      flex-direction: column;
+      align-items: start;
+    }
+    </style>
+</head>
+<body>
+    <input type="file" id="upload" accept="image/*">
+    <code>// Value range is 0.0 - 1.0 </code>
+    <code>function (r, g, b, a) {</code>
+    <textarea id="code" rows="10" cols="50">return [
+    r,
+    g,
+    b,
+    a
+];</textarea>
+    <code>}</code>
+    <button id="apply">Apply</button>
+    <canvas id="canvas"></canvas>
+    <button id="download">Download</button>
+
+    <script>
+        const upload = document.getElementById('upload');
+        const code = document.getElementById('code');
+        const apply = document.getElementById('apply');
+        const download = document.getElementById('download');
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+
+
+        let isLoaded = false;
+        let img = new Image();
+
+        upload.addEventListener('change', (event) => {
+            const file = event.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    img.src = e.target.result;
+                };
+                reader.readAsDataURL(file);
+            }
+        });
+
+        img.onload = () => {
+            canvas.width = img.width;
+            canvas.height = img.height;
+            ctx.drawImage(img, 0, 0);
+            isLoaded = true;
+        };
+
+        apply.addEventListener('click', doApply);
+        code.addEventListener('input', doApply);
+
+        function doApply() {
+        	  try {
+              const codeFunc = new Function(`return (r,g,b,a) => {\n    ${code.value}\n}`)();
+              ctx.clearRect(0, 0, canvas.width, canvas.height);
+              if (isLoaded) {
+                ctx.drawImage(img, 0, 0);
+              }
+              const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+              const data = imageData.data;
+
+              for (let i = 0; i < data.length; i += 4) {
+                  const [r, g, b, a] = [data[i], data[i + 1], data[i + 2], data[i + 3]];
+                  const result = codeFunc(r / 255, g / 255, b / 255, a / 255);
+
+                  data[i+0] = result[0] * 255;
+                  data[i+1] = result[1] * 255;
+                  data[i+2] = result[2] * 255;
+                  data[i+3] = result[3] * 255;
+              }
+
+              ctx.putImageData(imageData, 0, 0);
+            } catch (e) {
+            	// do nothing
+            }
+        }
+
+        download.addEventListener('click', () => {
+            const link = document.createElement('a');
+            link.download = 'edited_image.png';
+            link.href = canvas.toDataURL();
+            link.click();
+        });
+    </script>
+</body>
+</html>
+
